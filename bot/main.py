@@ -1,0 +1,252 @@
+import asyncio
+import logging
+import os
+from dataclasses import dataclass
+from pathlib import Path
+from typing import List, Optional
+
+import asyncpg
+from aiogram import Bot, Dispatcher, F
+from aiogram.enums.parse_mode import ParseMode
+from aiogram.filters import CommandStart
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+)
+from dotenv import load_dotenv
+from mcrcon import MCRcon
+from texts import Locale
+
+
+logging.basicConfig(level=logging.INFO)
+
+
+@dataclass
+class RconConfig:
+    host: str
+    port: int
+    password: str
+
+
+@dataclass
+class AppConfig:
+    admin_chat_id: int
+    admin_ids: List[int]
+    migrations_dir: Path
+    rcon: RconConfig
+    db_dsn: str
+    locale: Locale
+
+
+def parse_admin_ids(value: str) -> List[int]:
+    if not value:
+        return []
+    ids: List[int] = []
+    for raw in value.split(","):
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            ids.append(int(raw))
+        except ValueError:
+            logging.warning("Skipped admin id that is not a number: %s", raw)
+    return ids
+
+
+async def apply_migrations(pool: asyncpg.Pool, migrations_dir: Path) -> None:
+    if not migrations_dir.exists():
+        logging.warning(
+            "Migrations directory %s does not exist, skipping", migrations_dir
+        )
+        return
+
+    for path in sorted(migrations_dir.glob("*.sql")):
+        sql = path.read_text()
+        logging.info("Applying migration %s", path.name)
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute(sql)
+
+
+async def create_request(
+    pool: asyncpg.Pool, user_id: int, chat_id: int, username: str
+) -> int:
+    query = """
+        INSERT INTO whitelist_requests (user_id, chat_id, username)
+        VALUES ($1, $2, $3)
+        RETURNING id
+    """
+    async with pool.acquire() as conn:
+        record = await conn.fetchrow(query, user_id, chat_id, username)
+        return int(record["id"])
+
+
+async def fetch_request(
+    pool: asyncpg.Pool, request_id: int
+) -> Optional[asyncpg.Record]:
+    query = "SELECT * FROM whitelist_requests WHERE id = $1"
+    async with pool.acquire() as conn:
+        return await conn.fetchrow(query, request_id)
+
+
+async def mark_request(
+    pool: asyncpg.Pool, request_id: int, status: str, decided_by: int
+) -> None:
+    query = """
+        UPDATE whitelist_requests
+        SET status = $2, decided_at = NOW(), decided_by = $3
+        WHERE id = $1
+    """
+    async with pool.acquire() as conn:
+        await conn.execute(query, request_id, status, decided_by)
+
+
+def whitelist_player(config: RconConfig, username: str) -> str:
+    try:
+        with MCRcon(config.host, config.password, port=config.port) as client:
+            return client.command(f"whitelist add {username}")
+    except Exception as exc:  # noqa: BLE001
+        logging.exception("RCON whitelist command failed")
+        raise RuntimeError("Failed to whitelist player via RCON") from exc
+
+
+def build_admin_keyboard(request_id: int, locale: Locale) -> InlineKeyboardMarkup:
+    approve = InlineKeyboardButton(
+        text=locale.t("approve_button"), callback_data=f"approve:{request_id}"
+    )
+    deny = InlineKeyboardButton(
+        text=locale.t("deny_button"), callback_data=f"deny:{request_id}"
+    )
+    return InlineKeyboardMarkup(inline_keyboard=[[approve, deny]])
+
+
+async def main() -> None:
+    load_dotenv()
+
+    bot_token = os.environ.get("BOT_TOKEN")
+    admin_chat_id_raw = os.environ.get("ADMIN_CHAT_ID")
+    admin_ids_raw = os.environ.get("ADMIN_IDS", "")
+    locale_name = os.environ.get("LOCALE", "en").lower()
+    db_dsn = os.environ.get("DATABASE_URL") or (
+        "postgresql://{user}:{password}@{host}:{port}/{database}".format(
+            user=os.environ.get("POSTGRES_USER", "mcwhitelist"),
+            password=os.environ.get("POSTGRES_PASSWORD", "mcwhitelist"),
+            host=os.environ.get("POSTGRES_HOST", "db"),
+            port=os.environ.get("POSTGRES_PORT", "5432"),
+            database=os.environ.get("POSTGRES_DB", "mcwhitelist"),
+        )
+    )
+
+    rcon_config = RconConfig(
+        host=os.environ.get("RCON_HOST", "localhost"),
+        port=int(os.environ.get("RCON_PORT", "25575")),
+        password=os.environ.get("RCON_PASSWORD", ""),
+    )
+    migrations_dir = Path(os.environ.get("MIGRATIONS_DIR", "/app/schema"))
+
+    if not bot_token:
+        raise RuntimeError("BOT_TOKEN is required")
+    if not admin_chat_id_raw:
+        raise RuntimeError("ADMIN_CHAT_ID is required")
+
+    admin_chat_id = int(admin_chat_id_raw)
+    admin_ids = parse_admin_ids(admin_ids_raw)
+
+    config = AppConfig(
+        admin_chat_id=admin_chat_id,
+        admin_ids=admin_ids,
+        migrations_dir=migrations_dir,
+        rcon=rcon_config,
+        db_dsn=db_dsn,
+        locale=Locale(locale_name),
+    )
+
+    bot = Bot(token=bot_token, parse_mode=ParseMode.HTML)
+    dp = Dispatcher()
+    pool = await asyncpg.create_pool(dsn=config.db_dsn)
+
+    await apply_migrations(pool, config.migrations_dir)
+    logging.info("Migrations applied, starting bot")
+
+    @dp.message(CommandStart())
+    async def handle_start(message: Message) -> None:
+        hint = config.locale.t("username_hint")
+        await message.answer(config.locale.t("start", hint=hint))
+
+    @dp.message(F.text & ~F.via_bot)
+    async def handle_username(message: Message) -> None:
+        username = message.text.strip()
+        if not username:
+            await message.answer(config.locale.t("username_hint"))
+            return
+
+        request_id = await create_request(
+            pool, message.from_user.id, message.chat.id, username
+        )
+
+        await message.answer(
+            config.locale.t("request_sent", request_id=request_id)
+        )
+
+        admin_message = config.locale.t(
+            "admin_request",
+            request_id=request_id,
+            full_name=message.from_user.full_name,
+            tg_id=message.from_user.id,
+            username=username,
+        )
+        await bot.send_message(
+            chat_id=config.admin_chat_id,
+            text=admin_message,
+            reply_markup=build_admin_keyboard(request_id, config.locale),
+        )
+
+    @dp.callback_query(F.data.startswith("approve:") | F.data.startswith("deny:"))
+    async def handle_decision(callback: CallbackQuery) -> None:
+        action, _, id_raw = callback.data.partition(":")
+        try:
+            request_id = int(id_raw)
+        except ValueError:
+            await callback.answer(config.locale.t("invalid_request"), show_alert=True)
+            return
+
+        if callback.from_user.id not in config.admin_ids:
+            await callback.answer(config.locale.t("not_allowed"), show_alert=True)
+            return
+
+        record = await fetch_request(pool, request_id)
+        if not record:
+            await callback.answer(config.locale.t("request_not_found"), show_alert=True)
+            return
+
+        if record["status"] != "pending":
+            await callback.answer(config.locale.t("already_handled"), show_alert=True)
+            return
+
+        if action == "approve":
+            try:
+                whitelist_player(config.rcon, record["username"])
+            except Exception:
+                await callback.answer(config.locale.t("rcon_failed"), show_alert=True)
+                return
+            await mark_request(pool, request_id, "approved", callback.from_user.id)
+            await callback.answer("Approved", show_alert=False)
+            await bot.send_message(
+                chat_id=record["chat_id"],
+                text=config.locale.t("approved_user", request_id=request_id),
+            )
+        else:
+            await mark_request(pool, request_id, "denied", callback.from_user.id)
+            await callback.answer("Denied", show_alert=False)
+            await bot.send_message(
+                chat_id=record["chat_id"],
+                text=config.locale.t("denied_user", request_id=request_id),
+            )
+
+    await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
