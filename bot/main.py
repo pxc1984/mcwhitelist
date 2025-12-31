@@ -17,7 +17,7 @@ from aiogram.types import (
 )
 from dotenv import load_dotenv
 from mcrcon import MCRcon
-from texts import Locale
+from bot.texts import Locale
 
 
 logging.basicConfig(level=logging.INFO)
@@ -57,9 +57,7 @@ def parse_admin_ids(value: str) -> List[int]:
 
 async def apply_migrations(pool: asyncpg.Pool, migrations_dir: Path) -> None:
     if not migrations_dir.exists():
-        logging.warning(
-            "Migrations directory %s does not exist, skipping", migrations_dir
-        )
+        logging.warning("Migrations directory %s does not exist, skipping", migrations_dir)
         return
 
     for path in sorted(migrations_dir.glob("*.sql")):
@@ -70,9 +68,7 @@ async def apply_migrations(pool: asyncpg.Pool, migrations_dir: Path) -> None:
                 await conn.execute(sql)
 
 
-async def create_request(
-    pool: asyncpg.Pool, user_id: int, chat_id: int, username: str
-) -> int:
+async def create_request(pool: asyncpg.Pool, user_id: int, chat_id: int, username: str) -> int:
     query = """
         INSERT INTO whitelist_requests (user_id, chat_id, username)
         VALUES ($1, $2, $3)
@@ -83,17 +79,13 @@ async def create_request(
         return int(record["id"])
 
 
-async def fetch_request(
-    pool: asyncpg.Pool, request_id: int
-) -> Optional[asyncpg.Record]:
+async def fetch_request(pool: asyncpg.Pool, request_id: int) -> Optional[asyncpg.Record]:
     query = "SELECT * FROM whitelist_requests WHERE id = $1"
     async with pool.acquire() as conn:
         return await conn.fetchrow(query, request_id)
 
 
-async def mark_request(
-    pool: asyncpg.Pool, request_id: int, status: str, decided_by: int
-) -> None:
+async def mark_request(pool: asyncpg.Pool, request_id: int, status: str, decided_by: int) -> None:
     query = """
         UPDATE whitelist_requests
         SET status = $2, decided_at = NOW(), decided_by = $3
@@ -113,12 +105,8 @@ def whitelist_player(config: RconConfig, username: str) -> str:
 
 
 def build_admin_keyboard(request_id: int, locale: Locale) -> InlineKeyboardMarkup:
-    approve = InlineKeyboardButton(
-        text=locale.t("approve_button"), callback_data=f"approve:{request_id}"
-    )
-    deny = InlineKeyboardButton(
-        text=locale.t("deny_button"), callback_data=f"deny:{request_id}"
-    )
+    approve = InlineKeyboardButton(text=locale.t("approve_button"), callback_data=f"approve:{request_id}")
+    deny = InlineKeyboardButton(text=locale.t("deny_button"), callback_data=f"deny:{request_id}")
     return InlineKeyboardMarkup(inline_keyboard=[[approve, deny]])
 
 
@@ -182,13 +170,9 @@ async def main() -> None:
             await message.answer(config.locale.t("username_hint"))
             return
 
-        request_id = await create_request(
-            pool, message.from_user.id, message.chat.id, username
-        )
+        request_id = await create_request(pool, message.from_user.id, message.chat.id, username)
 
-        await message.answer(
-            config.locale.t("request_sent", request_id=request_id)
-        )
+        await message.answer(config.locale.t("request_sent", request_id=request_id))
 
         admin_message = config.locale.t(
             "admin_request",
