@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
@@ -38,6 +39,9 @@ class AppConfig:
     rcon: RconConfig
     db_dsn: str
     locale: Locale
+
+
+USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{3,16}$")
 
 
 def parse_admin_ids(value: str) -> List[int]:
@@ -165,9 +169,16 @@ async def main() -> None:
 
     @dp.message(F.text & ~F.via_bot)
     async def handle_username(message: Message) -> None:
+        if message.chat.id != message.from_user.id:
+            await message.answer(config.locale.t("private_only"))
+            return
+
         username = message.text.strip()
         if not username:
             await message.answer(config.locale.t("username_hint"))
+            return
+        if not USERNAME_RE.match(username):
+            await message.answer(config.locale.t("invalid_username"))
             return
 
         request_id = await create_request(pool, message.from_user.id, message.chat.id, username)
