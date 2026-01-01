@@ -190,7 +190,6 @@ async def main() -> None:
     @dp.message(StateFilter(None), F.text & ~F.via_bot)
     async def handle_username(message: Message, state: FSMContext) -> None:
         if message.chat.id != message.from_user.id:
-            await message.answer(config.locale.t("private_only"))
             return
 
         username = message.text.strip()
@@ -208,9 +207,7 @@ async def main() -> None:
             reply_markup=build_skip_keyboard(config.locale),
         )
 
-    async def finalize_request(
-        source_message: Message, state: FSMContext, comment: Optional[str]
-    ) -> None:
+    async def finalize_request(source_message: Message, state: FSMContext, comment: Optional[str]) -> None:
         data = await state.get_data()
         username = data.get("username")
         if not username:
@@ -218,9 +215,7 @@ async def main() -> None:
             await source_message.answer(config.locale.t("username_hint"))
             return
 
-        request_id = await create_request(
-            pool, source_message.from_user.id, source_message.chat.id, username, comment
-        )
+        request_id = await create_request(pool, source_message.from_user.id, source_message.chat.id, username, comment)
 
         await source_message.answer(config.locale.t("request_sent", request_id=request_id))
 
@@ -296,9 +291,7 @@ async def main() -> None:
                 chat_id=record["chat_id"],
                 text=config.locale.t("approved_user", request_id=request_id),
             )
-            verdict_text = config.locale.t(
-                "admin_verdict_approved", admin=format_admin(callback.from_user)
-            )
+            verdict_text = config.locale.t("admin_verdict_approved", admin=format_admin(callback.from_user))
         else:
             await mark_request(pool, request_id, "denied", callback.from_user.id)
             await callback.answer("Denied", show_alert=False)
@@ -306,9 +299,7 @@ async def main() -> None:
                 chat_id=record["chat_id"],
                 text=config.locale.t("denied_user", request_id=request_id),
             )
-            verdict_text = config.locale.t(
-                "admin_verdict_denied", admin=format_admin(callback.from_user)
-            )
+            verdict_text = config.locale.t("admin_verdict_denied", admin=format_admin(callback.from_user))
 
         if callback.message:
             new_text = f"{callback.message.text}\n\n{verdict_text}"

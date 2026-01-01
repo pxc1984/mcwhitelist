@@ -11,9 +11,7 @@ LOCALES: Dict[str, TextMap] = {
         "username_hint": "Send your Minecraft username to request access to the whitelist.\nUse the exact name you use in-game.",
         "request_sent": "Thanks! I sent your request (ID: {request_id}) to the admins.\nYou'll get a notification once it's reviewed.",
         "admin_request": (
-            "New whitelist request #{request_id}\n"
-            "Telegram: {full_name} (ID: {tg_id})\n"
-            "Minecraft username: {username}"
+            "New whitelist request #{request_id}\nTelegram: {full_name} (ID: {tg_id})\nMinecraft username: {username}"
         ),
         "not_allowed": "You are not allowed to do that.",
         "request_not_found": "Request not found",
@@ -24,7 +22,6 @@ LOCALES: Dict[str, TextMap] = {
         "invalid_request": "Invalid request id",
         "approve_button": "Approve",
         "deny_button": "Deny",
-        "private_only": "Please send requests in a private chat with the bot.",
         "invalid_username": "That doesn't look like a valid Minecraft username. Use 3-16 letters, numbers, or underscores.",
         "profile_button": "User profile",
         "ask_comment": "Do you have any additional comments to admins about your request?",
@@ -39,9 +36,7 @@ LOCALES: Dict[str, TextMap] = {
         "username_hint": "Отправь свой ник Minecraft, чтобы подать заявку на вайтлист.\nНик должен совпадать с игровым.",
         "request_sent": "Спасибо! Я отправил твою заявку (ID: {request_id}) администраторам.\nПосле проверки тебя уведомят.",
         "admin_request": (
-            "Новая заявка на вайтлист #{request_id}\n"
-            "Телеграм: {full_name} (ID: {tg_id})\n"
-            "Ник в Minecraft: {username}"
+            "Новая заявка на вайтлист #{request_id}\nТелеграм: {full_name} (ID: {tg_id})\nНик в Minecraft: {username}"
         ),
         "not_allowed": "У тебя нет прав на это действие.",
         "request_not_found": "Заявка не найдена",
@@ -52,7 +47,6 @@ LOCALES: Dict[str, TextMap] = {
         "invalid_request": "Некорректный ID заявки",
         "approve_button": "Одобрить",
         "deny_button": "Отклонить",
-        "private_only": "Пожалуйста, отправляй заявки в личные сообщения боту.",
         "invalid_username": "Похоже, ник некорректен. Используй 3–16 символов: буквы, цифры или подчёркивания.",
         "profile_button": "Профиль в TG",
         "ask_comment": "Есть ли дополнительные комментарии для админов?",
