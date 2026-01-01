@@ -11,7 +11,7 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.enums.parse_mode import ParseMode
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.filters import StateFilter
+from aiogram.filters import StateFilter
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     CallbackQuery,
@@ -79,9 +79,7 @@ async def apply_migrations(pool: asyncpg.Pool, migrations_dir: Path) -> None:
                 await conn.execute(sql)
 
 
-async def create_request(
-    pool: asyncpg.Pool, user_id: int, chat_id: int, username: str, comment: Optional[str]
-) -> int:
+async def create_request(pool: asyncpg.Pool, user_id: int, chat_id: int, username: str, comment: Optional[str]) -> int:
     query = """
         INSERT INTO whitelist_requests (user_id, chat_id, username, comment)
         VALUES ($1, $2, $3, $4)
@@ -120,9 +118,7 @@ def whitelist_player(config: RconConfig, username: str) -> str:
 def build_admin_keyboard(request_id: int, locale: Locale, user_id: int) -> InlineKeyboardMarkup:
     approve = InlineKeyboardButton(text=locale.t("approve_button"), callback_data=f"approve:{request_id}")
     deny = InlineKeyboardButton(text=locale.t("deny_button"), callback_data=f"deny:{request_id}")
-    profile = InlineKeyboardButton(
-        text=locale.t("profile_button"), url=f"tg://user?id={user_id}"
-    )
+    profile = InlineKeyboardButton(text=locale.t("profile_button"), url=f"tg://user?id={user_id}")
     return InlineKeyboardMarkup(inline_keyboard=[[approve, deny], [profile]])
 
 
@@ -182,7 +178,7 @@ async def main() -> None:
     @dp.message(StateFilter(None), F.text & ~F.via_bot)
     async def handle_username(message: Message, state: FSMContext) -> None:
         if message.chat.id != message.from_user.id:
-            await message.answer(config.locale.t("private_only"))
+            # await message.answer(config.locale.t("private_only"))
             return
 
         username = message.text.strip()
@@ -217,9 +213,7 @@ async def main() -> None:
         else:
             comment = comment_text
 
-        request_id = await create_request(
-            pool, message.from_user.id, message.chat.id, username, comment
-        )
+        request_id = await create_request(pool, message.from_user.id, message.chat.id, username, comment)
 
         await message.answer(config.locale.t("request_sent", request_id=request_id))
 
