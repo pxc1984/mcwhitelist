@@ -1,2 +1,2 @@
-ALTER TABLE whitelist_requests
-ADD COLUMN comment TEXT;
+ALTER TABLE IF EXISTS whitelist_requests
+ADD COLUMN IF NOT EXISTS comment TEXT;
