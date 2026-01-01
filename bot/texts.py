@@ -26,6 +26,7 @@ LOCALES: Dict[str, TextMap] = {
         "deny_button": "Deny",
         "private_only": "Please send requests in a private chat with the bot.",
         "invalid_username": "That doesn't look like a valid Minecraft username. Use 3-16 letters, numbers, or underscores.",
+        "profile_button": "User profile",
     },
     "ru": {
         "start": "Привет! Я помогаю управлять вайтлистом этого сервера.\n{hint}",
@@ -47,6 +48,7 @@ LOCALES: Dict[str, TextMap] = {
         "deny_button": "Отклонить",
         "private_only": "Пожалуйста, отправляй заявки в личные сообщения боту.",
         "invalid_username": "Похоже, ник некорректен. Используй 3–16 символов: буквы, цифры или подчёркивания.",
+        "profile_button": "Профиль в TG",
     },
 }
 

@@ -108,10 +108,13 @@ def whitelist_player(config: RconConfig, username: str) -> str:
         raise RuntimeError("Failed to whitelist player via RCON") from exc
 
 
-def build_admin_keyboard(request_id: int, locale: Locale) -> InlineKeyboardMarkup:
+def build_admin_keyboard(request_id: int, locale: Locale, user_id: int) -> InlineKeyboardMarkup:
     approve = InlineKeyboardButton(text=locale.t("approve_button"), callback_data=f"approve:{request_id}")
     deny = InlineKeyboardButton(text=locale.t("deny_button"), callback_data=f"deny:{request_id}")
-    return InlineKeyboardMarkup(inline_keyboard=[[approve, deny]])
+    profile = InlineKeyboardButton(
+        text=locale.t("profile_button"), url=f"tg://user?id={user_id}"
+    )
+    return InlineKeyboardMarkup(inline_keyboard=[[approve, deny], [profile]])
 
 
 async def main() -> None:
@@ -195,7 +198,7 @@ async def main() -> None:
         await bot.send_message(
             chat_id=config.admin_chat_id,
             text=admin_message,
-            reply_markup=build_admin_keyboard(request_id, config.locale),
+            reply_markup=build_admin_keyboard(request_id, config.locale, message.from_user.id),
         )
 
     @dp.callback_query(F.data.startswith("approve:") | F.data.startswith("deny:"))
