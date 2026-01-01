@@ -15,7 +15,7 @@ Telegram bot (aiogram) that collects whitelist requests and lets admins approve 
 
 ## Usage
 - Users DM the bot and send their Minecraft username (or just use `/start` and follow the prompt).
-- Bot asks for optional comments for admins (reply text or type `skip`).
+- Bot asks for optional comments for admins (send text or tap Skip).
 - The bot posts each request to `ADMIN_CHAT_ID` with Approve/Deny buttons.
 - Admins approve to run `whitelist add <username>` over RCON and notify the user; deny sends a rejection message.
 
