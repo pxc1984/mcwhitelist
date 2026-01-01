@@ -10,6 +10,9 @@ import asyncpg
 from aiogram import Bot, Dispatcher, F
 from aiogram.enums.parse_mode import ParseMode
 from aiogram.filters import CommandStart
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.filters import StateFilter
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
@@ -44,6 +47,10 @@ class AppConfig:
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{3,16}$")
 
 
+class RequestState(StatesGroup):
+    waiting_comment = State()
+
+
 def parse_admin_ids(value: str) -> List[int]:
     if not value:
         return []
@@ -72,14 +79,16 @@ async def apply_migrations(pool: asyncpg.Pool, migrations_dir: Path) -> None:
                 await conn.execute(sql)
 
 
-async def create_request(pool: asyncpg.Pool, user_id: int, chat_id: int, username: str) -> int:
+async def create_request(
+    pool: asyncpg.Pool, user_id: int, chat_id: int, username: str, comment: Optional[str]
+) -> int:
     query = """
-        INSERT INTO whitelist_requests (user_id, chat_id, username)
-        VALUES ($1, $2, $3)
+        INSERT INTO whitelist_requests (user_id, chat_id, username, comment)
+        VALUES ($1, $2, $3, $4)
         RETURNING id
     """
     async with pool.acquire() as conn:
-        record = await conn.fetchrow(query, user_id, chat_id, username)
+        record = await conn.fetchrow(query, user_id, chat_id, username, comment)
         return int(record["id"])
 
 
@@ -170,8 +179,8 @@ async def main() -> None:
         hint = config.locale.t("username_hint")
         await message.answer(config.locale.t("start", hint=hint))
 
-    @dp.message(F.text & ~F.via_bot)
-    async def handle_username(message: Message) -> None:
+    @dp.message(StateFilter(None), F.text & ~F.via_bot)
+    async def handle_username(message: Message, state: FSMContext) -> None:
         if message.chat.id != message.from_user.id:
             await message.answer(config.locale.t("private_only"))
             return
@@ -184,7 +193,33 @@ async def main() -> None:
             await message.answer(config.locale.t("invalid_username"))
             return
 
-        request_id = await create_request(pool, message.from_user.id, message.chat.id, username)
+        await state.update_data(username=username)
+        await state.set_state(RequestState.waiting_comment)
+        await message.answer(config.locale.t("ask_comment"))
+
+    @dp.message(RequestState.waiting_comment)
+    async def handle_comment(message: Message, state: FSMContext) -> None:
+        data = await state.get_data()
+        username = data.get("username")
+        if not username:
+            await state.clear()
+            await message.answer(config.locale.t("username_hint"))
+            return
+
+        if message.chat.id != message.from_user.id:
+            await message.answer(config.locale.t("private_only"))
+            return
+
+        comment_text = (message.text or "").strip()
+        comment: Optional[str]
+        if not comment_text or comment_text.lower() == "skip":
+            comment = None
+        else:
+            comment = comment_text
+
+        request_id = await create_request(
+            pool, message.from_user.id, message.chat.id, username, comment
+        )
 
         await message.answer(config.locale.t("request_sent", request_id=request_id))
 
@@ -195,11 +230,14 @@ async def main() -> None:
             tg_id=message.from_user.id,
             username=username,
         )
+        comment_for_admin = comment or config.locale.t("no_comment")
+        admin_message = f"{admin_message}\n{config.locale.t('admin_comment', comment=comment_for_admin)}"
         await bot.send_message(
             chat_id=config.admin_chat_id,
             text=admin_message,
             reply_markup=build_admin_keyboard(request_id, config.locale, message.from_user.id),
         )
+        await state.clear()
 
     @dp.callback_query(F.data.startswith("approve:") | F.data.startswith("deny:"))
     async def handle_decision(callback: CallbackQuery) -> None:

@@ -27,6 +27,9 @@ LOCALES: Dict[str, TextMap] = {
         "private_only": "Please send requests in a private chat with the bot.",
         "invalid_username": "That doesn't look like a valid Minecraft username. Use 3-16 letters, numbers, or underscores.",
         "profile_button": "User profile",
+        "ask_comment": "Do you have any additional comments to admins about your request? Send them now or type 'skip'.",
+        "admin_comment": "Comment: {comment}",
+        "no_comment": "No additional comments.",
     },
     "ru": {
         "start": "Привет! Я помогаю управлять вайтлистом этого сервера.\n{hint}",
@@ -49,6 +52,9 @@ LOCALES: Dict[str, TextMap] = {
         "private_only": "Пожалуйста, отправляй заявки в личные сообщения боту.",
         "invalid_username": "Похоже, ник некорректен. Используй 3–16 символов: буквы, цифры или подчёркивания.",
         "profile_button": "Профиль в TG",
+        "ask_comment": "Есть ли дополнительные комментарии для админов? Отправь их сейчас или напиши \"skip\".",
+        "admin_comment": "Комментарий: {comment}",
+        "no_comment": "Без дополнительных комментариев.",
     },
 }
 
