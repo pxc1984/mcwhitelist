@@ -190,7 +190,6 @@ async def main() -> None:
     @dp.message(StateFilter(None), F.text & ~F.via_bot)
     async def handle_username(message: Message, state: FSMContext) -> None:
         if message.chat.id != message.from_user.id:
-            await message.answer(config.locale.t("private_only"))
             return
 
         username = message.text.strip()
@@ -253,7 +252,6 @@ async def main() -> None:
     @dp.message(RequestState.waiting_comment)
     async def handle_comment(message: Message, state: FSMContext) -> None:
         if message.chat.id != message.from_user.id:
-            await message.answer(config.locale.t("private_only"))
             return
 
         comment_text = (message.text or "").strip()
