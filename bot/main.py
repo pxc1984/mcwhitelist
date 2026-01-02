@@ -128,7 +128,7 @@ def build_skip_keyboard(locale: Locale) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[skip]])
 
 
-def format_admin(user: types.User) -> str:
+def format_user(user: types.User) -> str:
     if user.username:
         return f"@{user.username}"
     return f'<a href="tg://user?id={user.id}">{user.full_name}</a>'
@@ -190,6 +190,7 @@ async def main() -> None:
     @dp.message(StateFilter(None), F.text & ~F.via_bot)
     async def handle_username(message: Message, state: FSMContext) -> None:
         if message.chat.id != message.from_user.id:
+            await message.answer(config.locale.t("private_only"))
             return
 
         username = message.text.strip()
@@ -200,7 +201,13 @@ async def main() -> None:
             await message.answer(config.locale.t("invalid_username"))
             return
 
-        await state.update_data(username=username)
+        await state.update_data(
+            username=username,
+            user_id=message.from_user.id,
+            chat_id=message.chat.id,
+            full_name=message.from_user.full_name,
+            mention=format_user(message.from_user),
+        )
         await state.set_state(RequestState.waiting_comment)
         await message.answer(
             config.locale.t("ask_comment"),
@@ -210,20 +217,28 @@ async def main() -> None:
     async def finalize_request(source_message: Message, state: FSMContext, comment: Optional[str]) -> None:
         data = await state.get_data()
         username = data.get("username")
+        user_id = data.get("user_id")
+        chat_id = data.get("chat_id")
+        full_name = data.get("full_name")
+        mention = data.get("mention") or full_name or username
         if not username:
             await state.clear()
             await source_message.answer(config.locale.t("username_hint"))
             return
+        if not user_id or not chat_id:
+            await state.clear()
+            await source_message.answer(config.locale.t("username_hint"))
+            return
 
-        request_id = await create_request(pool, source_message.from_user.id, source_message.chat.id, username, comment)
+        request_id = await create_request(pool, int(user_id), int(chat_id), username, comment)
 
         await source_message.answer(config.locale.t("request_sent", request_id=request_id))
 
         admin_message = config.locale.t(
             "admin_request",
             request_id=request_id,
-            full_name=source_message.from_user.full_name,
-            tg_id=source_message.from_user.id,
+            full_name=full_name or username,
+            tg_id=user_id,
             username=username,
         )
         comment_for_admin = comment or config.locale.t("no_comment")
@@ -231,7 +246,7 @@ async def main() -> None:
         await bot.send_message(
             chat_id=config.admin_chat_id,
             text=admin_message,
-            reply_markup=build_admin_keyboard(request_id, config.locale, source_message.from_user.id),
+            reply_markup=build_admin_keyboard(request_id, config.locale, int(user_id)),
         )
         await state.clear()
 
@@ -291,7 +306,7 @@ async def main() -> None:
                 chat_id=record["chat_id"],
                 text=config.locale.t("approved_user", request_id=request_id),
             )
-            verdict_text = config.locale.t("admin_verdict_approved", admin=format_admin(callback.from_user))
+            verdict_text = config.locale.t("admin_verdict_approved", admin=format_user(callback.from_user))
         else:
             await mark_request(pool, request_id, "denied", callback.from_user.id)
             await callback.answer("Denied", show_alert=False)
@@ -299,7 +314,7 @@ async def main() -> None:
                 chat_id=record["chat_id"],
                 text=config.locale.t("denied_user", request_id=request_id),
             )
-            verdict_text = config.locale.t("admin_verdict_denied", admin=format_admin(callback.from_user))
+            verdict_text = config.locale.t("admin_verdict_denied", admin=format_user(callback.from_user))
 
         if callback.message:
             new_text = f"{callback.message.text}\n\n{verdict_text}"
