@@ -38,13 +38,24 @@ jobs:
                   password: ${{ secrets.DOCKERHUB_TOKEN }}
 
             - name: Build and push ${{ matrix.name }} image
+              id: build-push
               uses: docker/build-push-action@v6
               with:
                   context: ${{ matrix.context }}
-                  file: ${{ matrix.context }}/${{ matrix.dockerfile }}
+                  file: ${{ matrix.dockerfile }}
                   push: true
                   tags: |
                       ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_PREFIX }}-${{ matrix.name }}:latest
                       ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_PREFIX }}-${{ matrix.name }}:${{ github.sha }}
                   cache-from: type=gha
                   cache-to: type=gha,mode=max
+
+            - name: Output image tag for deployment
+              run: |
+                  echo "IMAGE_TAG=${{ github.sha }}" >> $GITHUB_OUTPUT
+                  echo "IMAGE_NAME=${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_PREFIX }}-whitelist:${{ github.sha }}" >> $GITHUB_OUTPUT
+              if: matrix.name == 'whitelist'
+
+        outputs:
+            image_tag: ${{ steps.build-push.outputs.digest || github.sha }}
+            image_name: ${{ needs.build-and-push.outputs.IMAGE_NAME || format('{0}/{1}/{2}-{3}:{4}', env.REGISTRY, env.IMAGE_NAMESPACE, env.IMAGE_PREFIX, 'whitelist', github.sha) }}

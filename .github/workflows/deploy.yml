@@ -1,0 +1,89 @@
+name: Deploy Application
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Docker Images"]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    name: Deploy to Environment
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get workflow run data
+        id: get-workflow-run
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: run } = await github.rest.actions.getWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: ${{ github.event.workflow_run.id }}
+            });
+
+            // Get the commit SHA from the workflow run
+            const commitSha = run.head_sha;
+
+            // Get artifacts or outputs (if you stored them)
+            const { data: artifacts } = await github.rest.actions.listWorkflowRunArtifacts({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: ${{ github.event.workflow_run.id }}
+            });
+
+            return {
+                commit_sha: commitSha,
+                artifacts_count: artifacts.total_count
+            };
+
+      - name: Extract build information
+        id: extract-info
+        run: |
+          # Extract commit SHA from the triggering workflow
+          COMMIT_SHA="${{ github.event.workflow_run.head_sha }}"
+
+          # You can reconstruct the image name based on your naming convention
+          # Or fetch it from workflow outputs if you set them up
+          IMAGE_NAME="docker.io/${{ secrets.DOCKERHUB_USERNAME }}/mcwhitelist-whitelist:${COMMIT_SHA}"
+
+          echo "Commit SHA: ${COMMIT_SHA}"
+          echo "Image name: ${IMAGE_NAME}"
+
+          echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+          echo "COMMIT_SHA=${COMMIT_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Deploy to Server (SSH Example)
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          # Example SSH deployment script
+          echo "Deploying image: ${{ steps.extract-info.outputs.IMAGE_NAME }}"
+
+          # Create SSH key file
+          mkdir -p ~/.ssh
+          echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_ed2519
+          chmod 600 ~/.ssh/id_ed2519
+
+          # Deploy commands (customize based on your setup)
+          ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} << EOF
+              echo "Pulling new Docker image..."
+              docker compose pull whitelist
+              
+              echo "Stopping existing container..."
+              docker compose down whitelist || true
+              
+              echo "Starting new container..."
+              docker compose up whitelist || true
+              
+              echo "Cleaning up old images..."
+              docker image prune -af
+          EOF
