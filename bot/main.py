@@ -9,7 +9,7 @@ from typing import List, Optional
 import asyncpg
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.enums.parse_mode import ParseMode
-from aiogram.filters import CommandStart
+from aiogram.filters import Command, CommandStart
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -107,6 +107,17 @@ async def mark_request(pool: asyncpg.Pool, request_id: int, status: str, decided
         await conn.execute(query, request_id, status, decided_by)
 
 
+async def fetch_usernames(pool: asyncpg.Pool, user_id: int) -> List[asyncpg.Record]:
+    query = """
+        SELECT username, decided_at
+        FROM whitelist_requests
+        WHERE user_id = $1 AND status = 'approved'
+        ORDER BY decided_at DESC NULLS LAST, created_at DESC
+    """
+    async with pool.acquire() as conn:
+        return await conn.fetch(query, user_id)
+
+
 def whitelist_player(config: RconConfig, username: str) -> str:
     try:
         with MCRcon(config.host, config.password, port=config.port) as client:
@@ -186,6 +197,49 @@ async def main() -> None:
     async def handle_start(message: Message) -> None:
         hint = config.locale.t("username_hint")
         await message.answer(config.locale.t("start", hint=hint))
+
+    @dp.message(Command("whois"))
+    async def handle_whois(message: Message) -> None:
+        if message.chat.type == "private":
+            return
+
+        target_user: Optional[User] = None
+        if message.reply_to_message and message.reply_to_message.from_user:
+            target_user = message.reply_to_message.from_user
+        elif message.entities:
+            for entity in message.entities:
+                if entity.type == "text_mention" and entity.user:
+                    target_user = entity.user
+                    break
+        else:
+            text = message.text or ""
+            parts = text.split(maxsplit=1)
+            arg_text = parts[1].strip() if len(parts) > 1 else ""
+            if arg_text:
+                username = arg_text.split()[0].lstrip("@")
+                if username:
+                    try:
+                        chat = await bot.get_chat(f"@{username}")
+                    except Exception:
+                        chat = None
+                    if chat and chat.type == "private":
+                        target_user = chat
+
+        if not target_user:
+            await message.reply("Игрок не имеет проходки или был добавлен не через меня, сорян")
+            return
+
+        records = await fetch_usernames(pool, target_user.id)
+        if not records:
+            await message.reply("Игрок не имеет проходки или был добавлен не через меня, сорян")
+            return
+
+        lines = []
+        for record in records:
+            decided_at = record["decided_at"]
+            date_text = decided_at.strftime("%d.%m.%y") if decided_at else "??.??.??"
+            lines.append(f"{date_text} - {record['username']}")
+        await message.reply("\n".join(lines))
 
     @dp.message(StateFilter(None), F.text & ~F.via_bot)
     async def handle_username(message: Message, state: FSMContext) -> None:
