@@ -113,9 +113,9 @@ async def mark_request(pool: asyncpg.Pool, request_id: int, status: str, decided
 
 async def fetch_usernames(pool: asyncpg.Pool, user_id: int) -> List[asyncpg.Record]:
     query = """
-        SELECT username, decided_at
+        SELECT username, decided_at, status
         FROM whitelist_requests
-        WHERE user_id = $1 AND status = 'approved'
+        WHERE user_id = $1
         ORDER BY decided_at DESC NULLS LAST, created_at DESC
     """
     logger.debug("SQL fetch_usernames: %s | params=%s", query.strip(), (user_id,))
@@ -224,14 +224,23 @@ async def main() -> None:
         if message.chat.type == "private":
             return
 
+        logger.debug(
+            "WHOIS request: chat_id=%s user_id=%s text=%s reply_to=%s",
+            message.chat.id,
+            message.from_user.id if message.from_user else None,
+            message.text,
+            bool(message.reply_to_message),
+        )
         target_user: Optional[User] = None
         mc_username: Optional[str] = None
         if message.reply_to_message and message.reply_to_message.from_user:
             target_user = message.reply_to_message.from_user
+            logger.debug("WHOIS target via reply: user_id=%s", target_user.id)
         elif message.entities:
             for entity in message.entities:
                 if entity.type == "text_mention" and entity.user:
                     target_user = entity.user
+                    logger.debug("WHOIS target via text_mention: user_id=%s", target_user.id)
                     break
         else:
             text = message.text or ""
@@ -242,6 +251,7 @@ async def main() -> None:
                 if token:
                     if USERNAME_RE.match(token):
                         mc_username = token
+                        logger.debug("WHOIS target via mc username: %s", mc_username)
                     else:
                         try:
                             chat = await bot.get_chat(f"@{token}")
@@ -249,21 +259,26 @@ async def main() -> None:
                             chat = None
                         if chat and chat.type == "private":
                             target_user = chat
+                            logger.debug("WHOIS target via tg username: user_id=%s", target_user.id)
 
         if mc_username:
             user_id = await fetch_user_by_mc_username(pool, mc_username)
             if not user_id:
+                logger.debug("WHOIS no user_id for mc username: %s", mc_username)
                 await message.reply("Игрок не имеет проходки или был добавлен не через меня, сорян")
                 return
+            logger.debug("WHOIS found user_id=%s for mc username=%s", user_id, mc_username)
             await message.reply(f'<a href="tg://user?id={user_id}">Профиль</a>')
             return
 
         if not target_user:
+            logger.debug("WHOIS no target resolved")
             await message.reply("Игрок не имеет проходки или был добавлен не через меня, сорян")
             return
 
         records = await fetch_usernames(pool, target_user.id)
         if not records:
+            logger.debug("WHOIS no usernames for user_id=%s", target_user.id)
             await message.reply("Игрок не имеет проходки или был добавлен не через меня, сорян")
             return
 
@@ -271,7 +286,8 @@ async def main() -> None:
         for record in records:
             decided_at = record["decided_at"]
             date_text = decided_at.strftime("%d.%m.%y") if decided_at else "??.??.??"
-            lines.append(f"{date_text} - {record['username']}")
+            lines.append(f"{date_text} - {record['username']} - {record['status']}")
+        logger.debug("WHOIS result for user_id=%s: %s", target_user.id, lines)
         await message.reply("\n".join(lines))
 
     @dp.message(StateFilter(None), F.text & ~F.via_bot)
