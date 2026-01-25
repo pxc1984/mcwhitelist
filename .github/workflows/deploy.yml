@@ -25,11 +25,11 @@ jobs:
         run: |
           # Create SSH key file
           mkdir -p ~/.ssh
-          echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
 
           # Deploy commands (customize based on your setup)
-          ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} << EOF
+          ssh -T -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} << EOF
               echo "Pulling new Docker image..."
               docker compose pull whitelist
               
