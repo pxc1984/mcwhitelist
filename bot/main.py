@@ -118,6 +118,21 @@ async def fetch_usernames(pool: asyncpg.Pool, user_id: int) -> List[asyncpg.Reco
         return await conn.fetch(query, user_id)
 
 
+async def fetch_user_by_mc_username(pool: asyncpg.Pool, mc_username: str) -> Optional[int]:
+    query = """
+        SELECT user_id
+        FROM whitelist_requests
+        WHERE username = $1 AND status = 'approved'
+        ORDER BY decided_at DESC NULLS LAST, created_at DESC
+        LIMIT 1
+    """
+    async with pool.acquire() as conn:
+        record = await conn.fetchrow(query, mc_username)
+        if not record:
+            return None
+        return int(record["user_id"])
+
+
 def whitelist_player(config: RconConfig, username: str) -> str:
     try:
         with MCRcon(config.host, config.password, port=config.port) as client:
@@ -204,6 +219,7 @@ async def main() -> None:
             return
 
         target_user: Optional[User] = None
+        mc_username: Optional[str] = None
         if message.reply_to_message and message.reply_to_message.from_user:
             target_user = message.reply_to_message.from_user
         elif message.entities:
@@ -216,14 +232,25 @@ async def main() -> None:
             parts = text.split(maxsplit=1)
             arg_text = parts[1].strip() if len(parts) > 1 else ""
             if arg_text:
-                username = arg_text.split()[0].lstrip("@")
-                if username:
-                    try:
-                        chat = await bot.get_chat(f"@{username}")
-                    except Exception:
-                        chat = None
-                    if chat and chat.type == "private":
-                        target_user = chat
+                token = arg_text.split()[0].lstrip("@")
+                if token:
+                    if USERNAME_RE.match(token):
+                        mc_username = token
+                    else:
+                        try:
+                            chat = await bot.get_chat(f"@{token}")
+                        except Exception:
+                            chat = None
+                        if chat and chat.type == "private":
+                            target_user = chat
+
+        if mc_username:
+            user_id = await fetch_user_by_mc_username(pool, mc_username)
+            if not user_id:
+                await message.reply("Игрок не имеет проходки или был добавлен не через меня, сорян")
+                return
+            await message.reply(f'<a href="tg://user?id={user_id}">Профиль</a>')
+            return
 
         if not target_user:
             await message.reply("Игрок не имеет проходки или был добавлен не через меня, сорян")
