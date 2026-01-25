@@ -25,7 +25,8 @@ from mcrcon import MCRcon
 from bot.texts import Locale
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -86,6 +87,7 @@ async def create_request(pool: asyncpg.Pool, user_id: int, chat_id: int, usernam
         VALUES ($1, $2, $3, $4)
         RETURNING id
     """
+    logger.debug("SQL create_request: %s | params=%s", query.strip(), (user_id, chat_id, username, comment))
     async with pool.acquire() as conn:
         record = await conn.fetchrow(query, user_id, chat_id, username, comment)
         return int(record["id"])
@@ -93,6 +95,7 @@ async def create_request(pool: asyncpg.Pool, user_id: int, chat_id: int, usernam
 
 async def fetch_request(pool: asyncpg.Pool, request_id: int) -> Optional[asyncpg.Record]:
     query = "SELECT * FROM whitelist_requests WHERE id = $1"
+    logger.debug("SQL fetch_request: %s | params=%s", query, (request_id,))
     async with pool.acquire() as conn:
         return await conn.fetchrow(query, request_id)
 
@@ -103,6 +106,7 @@ async def mark_request(pool: asyncpg.Pool, request_id: int, status: str, decided
         SET status = $2, decided_at = NOW(), decided_by = $3
         WHERE id = $1
     """
+    logger.debug("SQL mark_request: %s | params=%s", query.strip(), (request_id, status, decided_by))
     async with pool.acquire() as conn:
         await conn.execute(query, request_id, status, decided_by)
 
@@ -114,6 +118,7 @@ async def fetch_usernames(pool: asyncpg.Pool, user_id: int) -> List[asyncpg.Reco
         WHERE user_id = $1 AND status = 'approved'
         ORDER BY decided_at DESC NULLS LAST, created_at DESC
     """
+    logger.debug("SQL fetch_usernames: %s | params=%s", query.strip(), (user_id,))
     async with pool.acquire() as conn:
         return await conn.fetch(query, user_id)
 
@@ -126,6 +131,7 @@ async def fetch_user_by_mc_username(pool: asyncpg.Pool, mc_username: str) -> Opt
         ORDER BY decided_at DESC NULLS LAST, created_at DESC
         LIMIT 1
     """
+    logger.debug("SQL fetch_user_by_mc_username: %s | params=%s", query.strip(), (mc_username,))
     async with pool.acquire() as conn:
         record = await conn.fetchrow(query, mc_username)
         if not record:
