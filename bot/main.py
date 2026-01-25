@@ -236,13 +236,13 @@ async def main() -> None:
         if message.reply_to_message and message.reply_to_message.from_user:
             target_user = message.reply_to_message.from_user
             logger.debug("WHOIS target via reply: user_id=%s", target_user.id)
-        elif message.entities:
+        if not target_user and message.entities:
             for entity in message.entities:
                 if entity.type == "text_mention" and entity.user:
                     target_user = entity.user
                     logger.debug("WHOIS target via text_mention: user_id=%s", target_user.id)
                     break
-        else:
+        if not target_user:
             text = message.text or ""
             parts = text.split(maxsplit=1)
             arg_text = parts[1].strip() if len(parts) > 1 else ""
