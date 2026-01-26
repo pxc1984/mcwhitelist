@@ -3,6 +3,7 @@ import logging
 
 import asyncpg
 from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
 from aiogram.enums.parse_mode import ParseMode
 from dotenv import load_dotenv
 
@@ -20,7 +21,10 @@ async def main() -> None:
     load_dotenv()
     config = load_config()
 
-    bot = Bot(token=config.bot_token, parse_mode=ParseMode.HTML)
+    bot = Bot(
+        token=config.bot_token,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
 
     dp = Dispatcher()
     pool = await asyncpg.create_pool(dsn=config.db_dsn)
