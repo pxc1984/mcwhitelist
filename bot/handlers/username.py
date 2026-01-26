@@ -12,7 +12,7 @@ from bot.utils import USERNAME_RE, format_user
 router = Router()
 
 
-@router.message(StateFilter(None), F.text & ~F.via_bot)
+@router.message(StateFilter(None), F.text & ~F.text.startswith("/") & ~F.via_bot)
 async def handle_username(message: Message, state: FSMContext, context: AppContext) -> None:
     if message.chat.id != message.from_user.id:
         return

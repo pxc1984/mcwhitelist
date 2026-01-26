@@ -30,6 +30,11 @@ LOCALES: Dict[str, TextMap] = {
         "skip_button": "Skip",
         "admin_verdict_approved": "Approved by {admin}",
         "admin_verdict_denied": "Denied by {admin}",
+        "private_only": "This action is only available in a private chat.",
+        "whitelist_cleanup_started": "Syncing whitelist...",
+        "whitelist_cleanup_none": "Whitelist sync finished. Nothing to remove.",
+        "whitelist_cleanup_done": "Whitelist sync finished. Removed {count} usernames.",
+        "whitelist_cleanup_list": "Removed: {usernames}",
     },
     "ru": {
         "start": "Привет! Я помогаю управлять вайтлистом этого сервера.\n{hint}",
@@ -55,6 +60,11 @@ LOCALES: Dict[str, TextMap] = {
         "skip_button": "Пропустить",
         "admin_verdict_approved": "Одобрено: {admin}",
         "admin_verdict_denied": "Отклонено: {admin}",
+        "private_only": "Это действие доступно только в личном чате.",
+        "whitelist_cleanup_started": "Синхронизирую вайтлист...",
+        "whitelist_cleanup_none": "Синхронизация завершена. Удалять нечего.",
+        "whitelist_cleanup_done": "Синхронизация завершена. Удалено {count} ников.",
+        "whitelist_cleanup_list": "Удалены: {usernames}",
     },
 }
 

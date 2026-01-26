@@ -82,3 +82,57 @@ async def fetch_user_by_mc_username(pool: asyncpg.Pool, mc_username: str) -> Opt
         if not record:
             return None
         return int(record["user_id"])
+
+
+async def fetch_approved_usernames(pool: asyncpg.Pool) -> List[str]:
+    query = """
+        SELECT username
+        FROM whitelist_requests
+        WHERE status = 'approved'
+    """
+    logger.debug("SQL fetch_approved_usernames: %s", query.strip())
+    async with pool.acquire() as conn:
+        records = await conn.fetch(query)
+        return [record["username"] for record in records]
+
+
+async def fetch_approved_requests_by_user(pool: asyncpg.Pool, user_id: int) -> List[asyncpg.Record]:
+    query = """
+        SELECT id, user_id, username, decided_at, created_at
+        FROM whitelist_requests
+        WHERE user_id = $1 AND status = 'approved'
+        ORDER BY decided_at DESC NULLS LAST, created_at DESC
+    """
+    logger.debug("SQL fetch_approved_requests_by_user: %s | params=%s", query.strip(), (user_id,))
+    async with pool.acquire() as conn:
+        return await conn.fetch(query, user_id)
+
+
+async def fetch_approved_requests(pool: asyncpg.Pool) -> List[asyncpg.Record]:
+    query = """
+        SELECT id, user_id, username, decided_at, created_at
+        FROM whitelist_requests
+        WHERE status = 'approved'
+        ORDER BY user_id, decided_at DESC NULLS LAST, created_at DESC
+    """
+    logger.debug("SQL fetch_approved_requests: %s", query.strip())
+    async with pool.acquire() as conn:
+        return await conn.fetch(query)
+
+
+async def mark_request_status(pool: asyncpg.Pool, request_id: int, status: str, decided_by: int) -> None:
+    query = """
+        UPDATE whitelist_requests
+        SET status = $2, decided_by = $3
+        WHERE id = $1
+    """
+    logger.debug("SQL mark_request_status: %s | params=%s", query.strip(), (request_id, status, decided_by))
+    async with pool.acquire() as conn:
+        await conn.execute(query, request_id, status, decided_by)
+
+
+async def delete_request(pool: asyncpg.Pool, request_id: int) -> None:
+    query = "DELETE FROM whitelist_requests WHERE id = $1"
+    logger.debug("SQL delete_request: %s | params=%s", query, (request_id,))
+    async with pool.acquire() as conn:
+        await conn.execute(query, request_id)

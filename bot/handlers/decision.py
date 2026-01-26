@@ -6,6 +6,7 @@ from aiogram.types import CallbackQuery
 from bot.context import AppContext
 from bot.db import fetch_request, mark_request
 from bot.rcon import whitelist_player
+from bot.services.whitelist import cleanup_secondary_accounts
 from bot.utils import format_user
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,11 @@ async def handle_decision(callback: CallbackQuery, context: AppContext) -> None:
         return
 
     if action == "approve":
+        await cleanup_secondary_accounts(
+            context,
+            user_id=record["user_id"],
+            keep_username=record["username"],
+        )
         try:
             whitelist_player(context.config.rcon, record["username"])
         except Exception:
