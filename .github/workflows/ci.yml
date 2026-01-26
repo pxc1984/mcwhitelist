@@ -1,0 +1,23 @@
+name: tests
+
+on:
+  push:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install aiogram==3.24.0 asyncpg==0.31.0 mcrcon==0.7.0 python-dotenv==1.2.1
+          python -m pip install pytest==8.3.4 pytest-asyncio==0.23.8
+      - name: Run tests
+        env:
+          PYTHONPATH: ./bot
+        run: |
+          pytest
