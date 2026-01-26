@@ -31,7 +31,7 @@ def test_username_regex() -> None:
 
 def test_format_user_username() -> None:
     user = FakeUser(id=1, username="tester")
-    assert format_user(user) == "@tester"
+    assert format_user(user) == '<a href="tg://user?id=1">@tester</a>'
 
 
 def test_format_user_link() -> None:

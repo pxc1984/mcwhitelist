@@ -11,7 +11,7 @@ LOCALES: Dict[str, TextMap] = {
         "username_hint": "Send your Minecraft username to request access to the whitelist.\nUse the exact name you use in-game.",
         "request_sent": "Thanks! I sent your request (ID: {request_id}) to the admins.\nYou'll get a notification once it's reviewed.",
         "admin_request": (
-            "New whitelist request #{request_id}\nTelegram: {full_name} (ID: {tg_id})\nMinecraft username: {username}"
+            "New whitelist request #{request_id}\nTelegram: {mention} (ID: {tg_id})\nMinecraft username: {username}"
         ),
         "not_allowed": "You are not allowed to do that.",
         "request_not_found": "Request not found",
@@ -41,7 +41,7 @@ LOCALES: Dict[str, TextMap] = {
         "username_hint": "Отправь свой ник Minecraft, чтобы подать заявку на вайтлист.\nНик должен совпадать с игровым.",
         "request_sent": "Спасибо! Я отправил твою заявку (ID: {request_id}) администраторам.\nПосле проверки тебя уведомят.",
         "admin_request": (
-            "Новая заявка на вайтлист #{request_id}\nТелеграм: {full_name} (ID: {tg_id})\nНик в Minecraft: {username}"
+            "Новая заявка на вайтлист #{request_id}\nТелеграм: {mention} (ID: {tg_id})\nНик в Minecraft: {username}"
         ),
         "not_allowed": "У тебя нет прав на это действие.",
         "request_not_found": "Заявка не найдена",

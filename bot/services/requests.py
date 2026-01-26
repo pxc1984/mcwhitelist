@@ -36,7 +36,7 @@ async def finalize_request(
     admin_message = context.config.locale.t(
         "admin_request",
         request_id=request_id,
-        full_name=full_name or username,
+        mention=mention or full_name or username,
         tg_id=user_id,
         username=username,
     )
