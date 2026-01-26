@@ -1,4 +1,0 @@
-aiogram==3.4.1
-asyncpg==0.29.0
-mcrcon==0.7.0
-python-dotenv==1.0.1

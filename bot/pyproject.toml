@@ -1,0 +1,15 @@
+[project]
+name = "mcwhitelist-bot"
+version = "0.1.0"
+description = "Telegram bot for mcwhitelist"
+requires-python = ">=3.11"
+dependencies = [
+  "aiogram==3.4.1",
+  "asyncpg==0.29.0",
+  "mcrcon==0.7.0",
+  "python-dotenv==1.0.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
