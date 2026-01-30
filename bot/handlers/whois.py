@@ -3,7 +3,7 @@ from typing import Optional
 
 from aiogram import Router
 from aiogram.filters import Command
-from aiogram.types import Message, User
+from aiogram.types import Message, ReactionTypeEmoji, User
 
 from bot.context import AppContext
 from bot.db import fetch_user_by_mc_username, fetch_usernames
@@ -42,6 +42,13 @@ async def handle_whois(message: Message, context: AppContext) -> None:
         text = message.text or ""
         parts = text.split(maxsplit=1)
         arg_text = parts[1].strip() if len(parts) > 1 else ""
+        if not message.reply_to_message and not arg_text:
+            await context.bot.set_message_reaction(
+                message.chat.id,
+                message.message_id,
+                [ReactionTypeEmoji(emoji="🤡")],
+            )
+            return
         if arg_text:
             token = arg_text.split()[0].lstrip("@")
             if token:

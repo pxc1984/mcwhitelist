@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from aiogram.types import ReactionTypeEmoji
 
 from bot.config import AppConfig, RconConfig
 from bot.context import AppContext
@@ -204,3 +205,19 @@ async def test_whois_missing(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert message.replies
     assert "Игрок" in message.replies[0]
+
+
+@pytest.mark.asyncio
+async def test_whois_no_args_reacts() -> None:
+    context = build_context()
+    message = FakeMessage(chat=FakeChat(1, "group"), from_user=FakeUser(1), text="/whois", message_id=42)
+
+    await handle_whois(message, context)
+
+    assert context.bot.reactions
+    assert context.bot.reactions[0]["chat_id"] == 1
+    assert context.bot.reactions[0]["message_id"] == 42
+    reaction = context.bot.reactions[0]["reaction"]
+    assert isinstance(reaction, list)
+    assert isinstance(reaction[0], ReactionTypeEmoji)
+    assert reaction[0].emoji == "🤡"

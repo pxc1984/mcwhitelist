@@ -22,6 +22,7 @@ class FakeMessage:
     text: Optional[str] = None
     reply_to_message: Optional["FakeMessage"] = None
     entities: Optional[List[Any]] = None
+    message_id: int = 1
     replies: List[str] = field(default_factory=list)
     answers: List[str] = field(default_factory=list)
     edits: List[str] = field(default_factory=list)
@@ -112,9 +113,26 @@ class FakeBot:
     def __init__(self) -> None:
         self.sent: List[Dict[str, Any]] = []
         self.chats: Dict[str, Any] = {}
+        self.reactions: List[Dict[str, Any]] = []
 
     async def send_message(self, chat_id: int, text: str, reply_markup: Any = None) -> None:
         self.sent.append({"chat_id": chat_id, "text": text, "reply_markup": reply_markup})
 
     async def get_chat(self, username: str) -> Any:
         return self.chats.get(username)
+
+    async def set_message_reaction(
+        self,
+        chat_id: int,
+        message_id: int,
+        reaction: Optional[List[Any]] = None,
+        is_big: Optional[bool] = None,
+    ) -> None:
+        self.reactions.append(
+            {
+                "chat_id": chat_id,
+                "message_id": message_id,
+                "reaction": reaction,
+                "is_big": is_big,
+            }
+        )
