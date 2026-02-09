@@ -65,6 +65,8 @@ LOCALES: Dict[str, TextMap] = {
         "whitelist_cleanup_none": "Синхронизация завершена. Удалять нечего.",
         "whitelist_cleanup_done": "Синхронизация завершена. Удалено {count} ников.",
         "whitelist_cleanup_list": "Удалены: {usernames}",
+        "add_user_usage": "Использование: /add 1234 Notch",
+        "add_user_success": "Ну че, мимо кассы так мимо кассы.\nИгрок с майнкрафт юзернеймом {username} с тг айди {tg_id} был пропущен мимо кассы",
     },
 }
 
